@@ -185,11 +185,57 @@ App.onUnitAttacked.Add(function(sender, x, y, target) {
     // 스턴상태가 아니고, 무적이 아니고, 같은 팀이 아니면 스턴을 건다.
     if(!target.tag.sturn && sender.tag.team != target.tag.team && !target.tag.super)
     {
-        target.tag.sturn = true;
-        target.moveSpeed = 0;
-        target.sendUpdated();
+        if(target.tag.team=0 && target.tileX > 32)
+        {
+            target.tag.sturn = true;
+            target.spawnAtLocation("blue_prison");
+            target.moveSpeed = 0;
+            target.sendUpdated();
+        }
+        else 
+        {
+            if(target.tag.team=1 && target.tileX < 32)
+            {
+                  target.tag.sturn = true;
+                  target.spawnAtLocation("red_prison");
+                  target.moveSpeed = 0;
+                  target.sendUpdated();
+            }
+        }
+        
     }
 });
+
+// 플레이어끼리 충돌할 때
+App.onPlayerTouched.Add(function(sender, target, x, y) {
+    if(_state != STATE_PLAYING)
+        return;
+
+    // on the same team movespeed 120, in the other team zone target goes to prison
+    // 같은 팀이면 무빙스피드 120, 다른 팀이면 레드팀영역(중앙왼쪽)이면 블루팀이 감옥에 가고 반대면 레드팀이 감옥에 간다.
+    if (sender.tag.team == target.tag.team)
+    {
+        target.moveSpeed = 120;
+        target.sendUpdate();
+        
+        if(target.tag.team=0 && target.tileX > 32)
+        {
+            target.spawnAtLocation("blue_prison");
+            target.moveSpeed = 0;
+            target.sendUpdated();
+        }
+        else
+        {
+          if(target.tag.team=1 && target.tileX < 32)
+          {
+                  target.spawnAtLocation("red_prison");
+                  target.moveSpeed = 0;
+                  target.sendUpdated();
+          }
+        }
+    }
+});
+
 
 // called every 20ms
 // 20ms 마다 호출되는 업데이트
@@ -203,7 +249,7 @@ App.onUpdate.Add(function(dt) {
     switch(_state)
     {
         case STATE_INIT:
-            App.showCenterLabel("The team that has painted the most land wins.\nHitting another teammate stuns them for 1 second.");
+            App.showCenterLabel("The team that has taken the most cone wins.\nHitting or tag another teammate send them to prison.");
             
             if(_stateTimer >= 5)
             {
