@@ -185,7 +185,7 @@ App.onUnitAttacked.Add(function(sender, x, y, target) {
     // 스턴상태가 아니고, 무적이 아니고, 같은 팀이 아니면 스턴을 건다.
     if(!target.tag.sturn && sender.tag.team != target.tag.team && !target.tag.super)
     {
-        if(target.tag.team=0 && target.tileX > 32)
+        if(target.tag.team==0 && target.tileX > 32)
         {
             target.tag.sturn = true;
             target.spawnAtLocation("blue_prison");
@@ -194,7 +194,7 @@ App.onUnitAttacked.Add(function(sender, x, y, target) {
         }
         else 
         {
-            if(target.tag.team=1 && target.tileX < 32)
+            if(target.tag.team==1 && target.tileX < 32)
             {
                   target.tag.sturn = true;
                   target.spawnAtLocation("red_prison");
@@ -217,22 +217,19 @@ App.onPlayerTouched.Add(function(sender, target, x, y) {
     {
         target.moveSpeed = 120;
         target.sendUpdate();
+    }
         
-        if(target.tag.team=0 && target.tileX > 32)
-        {
+    if(target.tag.team==0 && target.tileX > 32)
+    {
             target.spawnAtLocation("blue_prison");
             target.moveSpeed = 0;
             target.sendUpdated();
-        }
-        else
-        {
-          if(target.tag.team=1 && target.tileX < 32)
-          {
+    }
+    else if(target.tag.team==1 && target.tileX < 32)
+    {
                   target.spawnAtLocation("red_prison");
                   target.moveSpeed = 0;
                   target.sendUpdated();
-          }
-        }
     }
 });
 
