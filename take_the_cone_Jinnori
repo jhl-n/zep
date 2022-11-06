@@ -20,6 +20,31 @@ const STATE_PLAYING = 3002;
 const STATE_JUDGE = 3004;
 const STATE_END = 3005;
 
+//진놀이 맵 설정이 정상적으로 되어있는 지 확인하고, 아닌 경우 에러메세지를 리턴한다. 
+function checkSetting(){
+
+	let warningMsg = '';
+	if (!Map.hasLocation("red_start_point")) {
+		warningMsg = 'red_start_point';
+	}
+    if (!Map.hasLocation("blue_start_point")) {
+		warningMsg = 'blue_start_point';
+	}
+	if (!Map.hasLocation("blue_prison")) {
+		warningMsg = 'blue_prison';
+	}
+    if (!Map.hasLocation("red_prison")) {
+		warningMsg = 'red_prison';
+	}
+	if (!Map.hasLocation("red_score_zone")) {
+		warningMsg = 'red_score_zone';
+	}
+    if (!Map.hasLocation("blue_score_zone")) {
+		warningMsg = 'blue_score_zone';
+	}
+	return warningMsg; 
+}
+
 // load sprite
 let red = App.loadSpritesheet('red.png');
 let blue = App.loadSpritesheet('blue.png');
@@ -29,7 +54,7 @@ let _start = false;
 let _gameEnd = false;
 let _state = STATE_INIT;
 let _stateTimer = 0;
-let _timer = 90;
+let _timer = 120;
 
 let _objects = {};
 
@@ -54,9 +79,8 @@ function startState(state)
     switch(_state)
     {
         case STATE_INIT:
-            _start = true;
             _stateTimer = 0;
-            _timer = 90;
+            _timer = 120;
 
             _redScore = 0;
             _blueScore = 0;
@@ -83,9 +107,71 @@ function startState(state)
 
                 p.sprite = p.tag.team == 0 ? redman : blueman;
                 p.sendUpdated();
+
+                //고깔진놀이 앱을 실행한 유저를 확인한다.
+				if(p.id == App.creatorID){
+					if(p.isMobile)
+					//유저의 환경이 모바일인 경우의 위젯 
+						p.tag.widget = p.showWidget("setting.html", "bottom", 440, 340);
+					else
+					//유저의 환경이 pc인 경우의 위젯
+						p.tag.widget = p.showWidget("setting.html", "middle", 440, 340);
+					
+					p.tag.widget.sendMessage({ 
+						str_title         : '고깔 뺏기 진놀이',
+						str_title_text1   : "고깔을 많이 모으면 이깁니다",
+						str_title_text2   : '자기 땅에서 상대와 닿으면 상대를 감옥에 보낼 수 있습니다.\n게임을 시작하려면 사전 설정이 필요합니다.',
+						str_title_start   : "경기 시작",
+						str_title_how     : "고깔 뺏기 진놀이 경기장 설정 방법"
+					});
+					
+					p.tag.widget.onMessage.Add(function (sender, msg) {
+						//게임을 취소하는 경우, 나타난 위젯을 제거한다 
+						if (msg.type == "cancle") {
+							if(p.tag.widget_warning){
+								p.tag.widget_warning.destroy();
+								p.tag.widget_warning = null;
+							}
+
+							if(p.tag.widget){
+								p.tag.widget.destroy();
+								p.tag.widget = null;
+							}
+						
+						} else {
+							// 맵에 필요한 설정 체크							
+							let warning = checkSetting();
+		
+							if(warning !== ''){
+								if(p.tag.widget_warning){
+									p.tag.widget_warning.destroy();
+									p.tag.widget_warning = null;
+								}
+		
+								if(p.isMobile)
+									p.tag.widget_warning = App.showWidget("warning.html", "top", 440, 60);
+								else 
+									p.tag.widget_warning = App.showWidget("warning.html", "bottom", 440, 250);
+								
+								p.tag.widget_warning.sendMessage({
+									str_warningText :  '고깔 뺏기 진놀이는 사전 설정이 필요합니다.(Jinnori needs to be setup)',
+                                    str_warningText2 : ' 필요)',
+                                    str_warningText3 : '',
+									warningMsg: warning,
+								})
+							} else {
+								if(p.tag.widget){
+									p.tag.widget.destroy();
+									p.tag.widget = null;
+								}
+								
+								startState(STATE_READY);
+								_start = true;
+							}
+						}
+					})  
+				}
             }
-            break;
-        case STATE_READY:
             for(let i in _players) {
                 let p = _players[i];
                
@@ -94,6 +180,18 @@ function startState(state)
                 else if(p.tag.team == 1)
                 p.spawnAtLocation("blue_start_point");
                 p.moveSpeed = 0;
+                p.sendUpdated();
+            }            
+            break;
+
+
+		
+
+        case STATE_READY:
+            for(let i in _players) {
+                let p = _players[i];
+         
+                p.moveSpeed = 10;
                 p.sendUpdated();
             }
             break;
@@ -131,6 +229,7 @@ function startState(state)
 
 App.onStart.Add(function(){
     startState(STATE_INIT);
+  
 });
 
 // when player join the space event
@@ -183,13 +282,119 @@ App.onUnitAttacked.Add(function(sender, x, y, target) {
 
     // not stun, not invincible, not on the same team
     // 스턴상태가 아니고, 무적이 아니고, 같은 팀이 아니면 스턴을 건다.
-    if(!target.tag.sturn && sender.tag.team != target.tag.team && !target.tag.super)
+    // on the same team movespeed 120, in the other team zone target goes to prison
+    // 같은 팀이면 무빙스피드 120, 다른 팀이면 레드팀영역(중앙왼쪽)이면 블루팀이 감옥에 가고 반대면 레드팀이 감옥에 간다.
+    if(sender.tag.team == target.tag.team)
     {
-        target.tag.sturn = true;
-        target.moveSpeed = 0;
-        target.sendUpdated();
+        if(target.tag.team == 0){
+            target.moveSpeed = 120;
+            target.spawnAtLocation("red_start_point");
+            target.sendUpdated();
+        }
+        if(target.tag.team == 1){
+            target.moveSpeed = 120;
+            target.spawnAtLocation("blue_start_point");
+            target.sendUpdated();
+        }
+    }
+    else if(sender.tag.team !== target.tag.team)
+    {   
+        if(target.tag.team==0 && target.tileX > 32)
+        {
+            target.spawnAtLocation("blue_prison");
+            target.moveSpeed = 0;
+            target.sendUpdated();
+        }
+        else if(target.tag.team==1 && target.tileX < 32)
+        {
+                  target.spawnAtLocation("red_prison");
+                  target.moveSpeed = 0;
+                  target.sendUpdated();
+        }
+        if(sender.tag.team==0 && sender.tileX > 32)
+        {
+            sender.spawnAtLocation("blue_prison");
+            sender.moveSpeed = 0;
+            sender.sendUpdated();
+        }
+        else if(sender.tag.team==1 && sender.tileX < 32)
+        {
+                  sender.spawnAtLocation("red_prison");
+                  sender.moveSpeed = 0;
+                  sender.sendUpdated();
+        }
     }
 });
+
+// 플레이어끼리 충돌할 때
+App.onPlayerTouched.Add(function(sender, target, x, y) {
+    if(_state != STATE_PLAYING)
+        return;
+
+    // on the same team movespeed 120, in the other team zone target goes to prison
+    // 같은 팀이면 무빙스피드 120, 다른 팀이면 레드팀영역(중앙왼쪽)이면 블루팀이 감옥에 가고 반대면 레드팀이 감옥에 간다.
+    if(sender.tag.team == target.tag.team)
+    {
+        if(target.tag.team == 0){
+            target.moveSpeed = 120;
+            target.spawnAtLocation("red_start_point");
+            target.sendUpdated();
+        }
+        if(target.tag.team == 1){
+            target.moveSpeed = 120;
+            target.spawnAtLocation("blue_start_point");
+            target.sendUpdated();
+        }
+    }
+    else if(sender.tag.team !== target.tag.team)
+    {   
+        if(target.tag.team==0 && target.tileX > 32)
+        {
+            target.spawnAtLocation("blue_prison");
+            target.moveSpeed = 0;
+            target.sendUpdated();
+        }
+        else if(target.tag.team==1 && target.tileX < 32)
+        {
+                  target.spawnAtLocation("red_prison");
+                  target.moveSpeed = 0;
+                  target.sendUpdated();
+        }
+        if(sender.tag.team==0 && sender.tileX > 32)
+        {
+            sender.spawnAtLocation("blue_prison");
+            sender.moveSpeed = 0;
+            sender.sendUpdated();
+        }
+        else if(sender.tag.team==1 && sender.tileX < 32)
+        {
+                  sender.spawnAtLocation("red_prison");
+                  sender.moveSpeed = 0;
+                  sender.sendUpdated();
+        }
+    }
+});
+
+// update score : player located at score_zone
+                                       
+App.addOnLocationTouched("red_score_zone", function(p){
+    if(p.tag.team == 0)
+    {
+        _redScore ++;
+        p.spawnAtLocation("red_start_point");
+        p.sendUpdated();
+    }
+});
+                    
+App.addOnLocationTouched("blue_score_zone", function(p){
+    if(p.tag.team == 1)
+    {
+        _blueScore ++;
+        p.spawnAtLocation("blue_start_point");
+        p.sendUpdated();
+    }
+});
+
 
 // called every 20ms
 // 20ms 마다 호출되는 업데이트
@@ -203,15 +408,15 @@ App.onUpdate.Add(function(dt) {
     switch(_state)
     {
         case STATE_INIT:
-            App.showCenterLabel("The team that has painted the most land wins.\nHitting another teammate stuns them for 1 second.");
+            App.showCenterLabel("고깔을 많이 모으는 편이 승리합니다.\n자기땅에서 상대편과 닿으면 상대를 감옥에 보낼 수 있습니다.\n같은편과 닿으면 감옥에서 풀려납니다.");
             
-            if(_stateTimer >= 5)
+            if(_stateTimer >= 7)
             {
                 startState(STATE_READY);
             }
             break;
         case STATE_READY:
-            App.showCenterLabel("The game will start soon.");
+            App.showCenterLabel("경기가 곧 시작됩니다.");
             if(_stateTimer >= 3)
             {
                 startState(STATE_PLAYING);
@@ -272,42 +477,7 @@ App.onUpdate.Add(function(dt) {
                 for(let i in _players) {
                     let p = _players[i];
                     
-                    // for speed buff
-                    if(_timer == 30 || _timer == 20 || _timer == 10)
-                    {
-                        if(_redScore > _blueScore)
-                        {
-                            if(p.tag.team == 1)
-                            {
-                                // set player title
-                                p.title = '<SPEED UP>';
-                                p.moveSpeed = 90;
-                                p.sendUpdated();
-                            }
-                            else
-                            {
-                                p.title = null;
-                                p.moveSpeed = 80;
-                                p.sendUpdated();
-                            }
-                        }
-                        else if(_redScore < _blueScore)
-                        {
-                            if(p.tag.team == 0)
-                            {
-                                p.title = '<SPEED UP>';
-                                p.moveSpeed = 90;
-                                p.sendUpdated();
-                            }
-                            else
-                            {
-                                p.title = null;
-                                p.moveSpeed = 80;
-                                p.sendUpdated();
-                            }
-                        }
-                    }
-
+                   
                     // strun state check
                     if(p.tag.sturn)
                     {
@@ -332,35 +502,8 @@ App.onUpdate.Add(function(dt) {
                             p.tag.sTime = 1;
                             p.sendUpdated();
                         }
-                    }
-
-                    // paint tile and update score
-                    if(p.tag.x != p.tileX || p.tag.y != p.tileY) {
-                        p.tag.x = p.tileX;
-                        p.tag.y = p.tileY;
-                        
-                        let oldValue = _objects[p.tileY * HEIGHT_KEY + p.tileX];
-                        if(oldValue == p.tag.team)
-                            continue;
-        
-                        if(oldValue == 0) {
-                            _redScore--;
-                        } else if(oldValue == 1) {
-                            _blueScore--;
-                        }
-        
-                        if(p.tag.team == 0)
-                            _redScore++;
-                        else
-                            _blueScore++;
-                        
-                        _objects[p.tileY * HEIGHT_KEY + p.tileX] = p.tag.team;
-                        
-                        Map.putObject(p.tileX, p.tileY, p.tag.team == 0 ? red : blue,
-                        {
-                            overlap: true,
-                        });
-                    }
+                    }                   
+                    
                 }
             }
             break;
