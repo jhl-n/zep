@@ -120,9 +120,9 @@ function startState(state)
 					p.tag.widget.sendMessage({ 
 						str_title         : '고깔 뺏기 진놀이',
 						str_title_text1   : "고깔을 많이 모으면 이깁니다",
-						str_title_text2   : '자기 땅에서 상대와 닿으면 상대를 감옥에 보낼 수 있습니다.\n게임을 시작하려면 사전 설정이 필요합니다.',
+						str_title_text2   : '자기 땅에서 상대와 닿으면 상대를 감옥에 보낼 수 있습니다.\n이 게임은 전용 경기장 맵에서 할 수 있습니다.',
 						str_title_start   : "경기 시작",
-						str_title_how     : "고깔 뺏기 진놀이 경기장 설정 방법"
+						str_title_how     : "고깔 뺏기 진놀이 전용맵"
 					});
 					
 					p.tag.widget.onMessage.Add(function (sender, msg) {
@@ -232,6 +232,7 @@ App.onStart.Add(function(){
   
 });
 
+
 // when player join the space event
 // 플레이어가 스페이스에 입장 했을 때 이벤트
 App.onJoinPlayer.Add(function(p) {
@@ -239,9 +240,10 @@ App.onJoinPlayer.Add(function(p) {
         x: p.tileX,
         y: p.tileY,
         sturn : false,
-        sTime : 1,
+        iTime : 10,  // 감옥에 갇힌 시간 10초로 설정
         super : false,
         team: Math.floor(TEAM_COUNTER % 2),
+        inprison : false,
     };
 
     if(p.tag.team == 0)
@@ -252,9 +254,144 @@ App.onJoinPlayer.Add(function(p) {
     TEAM_COUNTER++;
     p.nameColor = p.tag.team == 0 ? 16711680 : 255;
     p.sprite = p.tag.team == 0 ? redman : blueman;
-    p.sendUpdated();
+ 	p.sendUpdated();
 
     _players = App.players;
+});
+
+
+// when player attacked other player event (z key)
+// 플레이어가 다른 플레이어를 공격혔을 때 (Z키)
+App.onUnitAttacked.Add(function(sender, x, y, target) {
+    if(_state != STATE_PLAYING)
+        return;
+
+    // not stun, not invincible, not on the same team
+    // 스턴상태가 아니고, 무적이 아니고, 같은 팀이 아니면 스턴을 건다.
+    // on the same team movespeed 120, in the other team zone target goes to prison
+    // 같은 팀이면 무빙스피드 120, 다른 팀이면 레드팀영역(중앙왼쪽)이면 블루팀이 감옥에 가고 반대면 레드팀이 감옥에 간다.
+    if(sender.tag.team == target.tag.team)
+    {
+        if(target.tag.team == 0){
+            target.tag.inprison = false; // 감옥에 갇힘여부 false로 변경
+            target.moveSpeed = 120;
+            target.spawnAtLocation("red_start_point");
+            target.sendUpdated();
+        }
+        if(target.tag.team == 1){
+            target.tag.inprison = false; // 감옥에 갇힘여부 false로 변경
+            target.moveSpeed = 120;
+            target.spawnAtLocation("blue_start_point");
+            target.sendUpdated();
+        }
+    }
+    else if(sender.tag.team !== target.tag.team)
+    {   
+        if(target.tag.team==0 && target.tileX > 32)
+        {
+            target.spawnAtLocation("blue_prison");
+            target.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
+            target.moveSpeed = 0;
+            target.sendUpdated();
+        }
+        else if(target.tag.team==1 && target.tileX < 32)
+        {
+                  target.spawnAtLocation("red_prison");
+                  target.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
+                  target.moveSpeed = 0;
+                  target.sendUpdated();
+        }
+        if(sender.tag.team==0 && sender.tileX > 32)
+        {
+            sender.spawnAtLocation("blue_prison");
+            sender.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
+            sender.moveSpeed = 0;
+            sender.sendUpdated();
+        }
+        else if(sender.tag.team==1 && sender.tileX < 32)
+        {
+                  sender.spawnAtLocation("red_prison");
+                  sender.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
+                  sender.moveSpeed = 0;
+                  sender.sendUpdated();
+        }
+    }
+});
+
+
+// 플레이어끼리 충돌할 때
+App.onPlayerTouched.Add(function(sender, target, x, y) {
+    if(_state != STATE_PLAYING)
+        return;
+
+    // on the same team movespeed 120, in the other team zone target goes to prison
+    // 같은 팀이면 무빙스피드 120, 다른 팀이면 레드팀영역(중앙왼쪽)이면 블루팀이 감옥에 가고 반대면 레드팀이 감옥에 간다.
+    if(sender.tag.team == target.tag.team)
+    {
+        if(target.tag.team == 0){
+            target.tag.inprison = false; // 감옥에 갇힘여부 false로 변경
+            target.moveSpeed = 120;
+            target.spawnAtLocation("red_start_point");
+            target.sendUpdated();
+        }
+        if(target.tag.team == 1){
+            target.tag.inprison = false; // 감옥에 갇힘여부 false로 변경
+            target.moveSpeed = 120;
+            target.spawnAtLocation("blue_start_point");
+            target.sendUpdated();
+        }
+    }
+    else if(sender.tag.team !== target.tag.team)
+    {   
+        if(target.tag.team==0 && target.tileX > 32)
+        {
+            target.spawnAtLocation("blue_prison");
+            target.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
+            target.moveSpeed = 0;
+            target.sendUpdated();
+        }
+        else if(target.tag.team==1 && target.tileX < 32)
+        {
+                  target.spawnAtLocation("red_prison");
+                  target.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
+                  target.moveSpeed = 0;
+                  target.sendUpdated();
+        }
+        if(sender.tag.team==0 && sender.tileX > 32)
+        {
+            sender.spawnAtLocation("blue_prison");
+            sender.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
+            sender.moveSpeed = 0;
+            sender.sendUpdated();
+        }
+        else if(sender.tag.team==1 && sender.tileX < 32)
+        {
+                  sender.spawnAtLocation("red_prison");
+                  sender.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
+                  sender.moveSpeed = 0;
+                  sender.sendUpdated();
+        }
+    }
+});
+
+
+// update score : player located at score_zone                               
+App.addOnLocationTouched("red_score_zone", function(p){
+    if(p.tag.team == 0)
+    {
+        _redScore ++;
+        p.spawnAtLocation("red_start_point");
+        p.sendUpdated();
+    }
+});
+                    
+App.addOnLocationTouched("blue_score_zone", function(p){
+    if(p.tag.team == 1)
+    {
+        _blueScore ++;
+        p.spawnAtLocation("blue_start_point");
+        p.sendUpdated();
+    }
 });
 
 // when player leave the space event
@@ -274,133 +411,30 @@ App.onDestroy.Add(function() {
     Map.clearAllObjects();
 })
 
-// when player attacked other player event (z key)
-// 플레이어가 다른 플레이어를 공격혔을 때 (Z키)
-App.onUnitAttacked.Add(function(sender, x, y, target) {
-    if(_state != STATE_PLAYING)
-        return;
-
-    // not stun, not invincible, not on the same team
-    // 스턴상태가 아니고, 무적이 아니고, 같은 팀이 아니면 스턴을 건다.
-    // on the same team movespeed 120, in the other team zone target goes to prison
-    // 같은 팀이면 무빙스피드 120, 다른 팀이면 레드팀영역(중앙왼쪽)이면 블루팀이 감옥에 가고 반대면 레드팀이 감옥에 간다.
-    if(sender.tag.team == target.tag.team)
-    {
-        if(target.tag.team == 0){
-            target.moveSpeed = 120;
-            target.spawnAtLocation("red_start_point");
-            target.sendUpdated();
-        }
-        if(target.tag.team == 1){
-            target.moveSpeed = 120;
-            target.spawnAtLocation("blue_start_point");
-            target.sendUpdated();
-        }
-    }
-    else if(sender.tag.team !== target.tag.team)
-    {   
-        if(target.tag.team==0 && target.tileX > 32)
-        {
-            target.spawnAtLocation("blue_prison");
-            target.moveSpeed = 0;
-            target.sendUpdated();
-        }
-        else if(target.tag.team==1 && target.tileX < 32)
-        {
-                  target.spawnAtLocation("red_prison");
-                  target.moveSpeed = 0;
-                  target.sendUpdated();
-        }
-        if(sender.tag.team==0 && sender.tileX > 32)
-        {
-            sender.spawnAtLocation("blue_prison");
-            sender.moveSpeed = 0;
-            sender.sendUpdated();
-        }
-        else if(sender.tag.team==1 && sender.tileX < 32)
-        {
-                  sender.spawnAtLocation("red_prison");
-                  sender.moveSpeed = 0;
-                  sender.sendUpdated();
-        }
-    }
-});
-
-// 플레이어끼리 충돌할 때
-App.onPlayerTouched.Add(function(sender, target, x, y) {
-    if(_state != STATE_PLAYING)
-        return;
-
-    // on the same team movespeed 120, in the other team zone target goes to prison
-    // 같은 팀이면 무빙스피드 120, 다른 팀이면 레드팀영역(중앙왼쪽)이면 블루팀이 감옥에 가고 반대면 레드팀이 감옥에 간다.
-    if(sender.tag.team == target.tag.team)
-    {
-        if(target.tag.team == 0){
-            target.moveSpeed = 120;
-            target.spawnAtLocation("red_start_point");
-            target.sendUpdated();
-        }
-        if(target.tag.team == 1){
-            target.moveSpeed = 120;
-            target.spawnAtLocation("blue_start_point");
-            target.sendUpdated();
-        }
-    }
-    else if(sender.tag.team !== target.tag.team)
-    {   
-        if(target.tag.team==0 && target.tileX > 32)
-        {
-            target.spawnAtLocation("blue_prison");
-            target.moveSpeed = 0;
-            target.sendUpdated();
-        }
-        else if(target.tag.team==1 && target.tileX < 32)
-        {
-                  target.spawnAtLocation("red_prison");
-                  target.moveSpeed = 0;
-                  target.sendUpdated();
-        }
-        if(sender.tag.team==0 && sender.tileX > 32)
-        {
-            sender.spawnAtLocation("blue_prison");
-            sender.moveSpeed = 0;
-            sender.sendUpdated();
-        }
-        else if(sender.tag.team==1 && sender.tileX < 32)
-        {
-                  sender.spawnAtLocation("red_prison");
-                  sender.moveSpeed = 0;
-                  sender.sendUpdated();
-        }
-    }
-});
-
-// update score : player located at score_zone
-                                       
-App.addOnLocationTouched("red_score_zone", function(p){
-    if(p.tag.team == 0)
-    {
-        _redScore ++;
-        p.spawnAtLocation("red_start_point");
-        p.sendUpdated();
-    }
-});
-                    
-App.addOnLocationTouched("blue_score_zone", function(p){
-    if(p.tag.team == 1)
-    {
-        _blueScore ++;
-        p.spawnAtLocation("blue_start_point");
-        p.sendUpdated();
-    }
-});
-
-
 // called every 20ms
 // 20ms 마다 호출되는 업데이트
 // param1 : deltatime ( elapsedTime )
 App.onUpdate.Add(function(dt) {
-    if(!_start)
+	
+    for(let i in _players) {
+        let p = _players[i];
+        // 감옥에 갇힘 여부가 true 이면
+        if(p.tag.inprison)
+        {
+            p.tag.iTime -= dt; // 감옥에 갇힘 지속시간이 0이 될 때까지 update마다 dt만큼 빼줌
+            if(p.tag.iTime <= 0) // 감옥에 갇힘 지속시간이 0 이하가 되면,
+            {
+                p.tag.inprison = false; // 감옥에 갇힘 여부를 false로 변경
+                p.tag.iTime = 10; // 갇힘시간 10초로 초기화
+                p.moveSpeed = 120; // 이동속도 정상화
+                p.title = p.tag.inprison;
+                p.sendUpdated();
+            }
+        }
+    }
+
+
+     if(!_start)
         return;
 
     _stateTimer += dt;
@@ -428,6 +462,7 @@ App.onUpdate.Add(function(dt) {
                 _stateTimer = 0;
                 _timer--;
             }
+      
 
             // time over
             if(_timer <= 0)
