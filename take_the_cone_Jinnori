@@ -274,13 +274,11 @@ App.onUnitAttacked.Add(function(sender, x, y, target) {
     {
         if(target.tag.team == 0){
             target.tag.inprison = false; // 감옥에 갇힘여부 false로 변경
-            target.moveSpeed = 120;
             target.spawnAtLocation("red_start_point");
             target.sendUpdated();
         }
         if(target.tag.team == 1){
             target.tag.inprison = false; // 감옥에 갇힘여부 false로 변경
-            target.moveSpeed = 120;
             target.spawnAtLocation("blue_start_point");
             target.sendUpdated();
         }
@@ -291,28 +289,24 @@ App.onUnitAttacked.Add(function(sender, x, y, target) {
         {
             target.spawnAtLocation("blue_prison");
             target.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
-            target.moveSpeed = 0;
             target.sendUpdated();
         }
         else if(target.tag.team==1 && target.tileX < 32)
         {
                   target.spawnAtLocation("red_prison");
                   target.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
-                  target.moveSpeed = 0;
                   target.sendUpdated();
         }
         if(sender.tag.team==0 && sender.tileX > 32)
         {
             sender.spawnAtLocation("blue_prison");
             sender.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
-            sender.moveSpeed = 0;
             sender.sendUpdated();
         }
         else if(sender.tag.team==1 && sender.tileX < 32)
         {
                   sender.spawnAtLocation("red_prison");
                   sender.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
-                  sender.moveSpeed = 0;
                   sender.sendUpdated();
         }
     }
@@ -330,13 +324,11 @@ App.onPlayerTouched.Add(function(sender, target, x, y) {
     {
         if(target.tag.team == 0){
             target.tag.inprison = false; // 감옥에 갇힘여부 false로 변경
-            target.moveSpeed = 120;
             target.spawnAtLocation("red_start_point");
             target.sendUpdated();
         }
         if(target.tag.team == 1){
             target.tag.inprison = false; // 감옥에 갇힘여부 false로 변경
-            target.moveSpeed = 120;
             target.spawnAtLocation("blue_start_point");
             target.sendUpdated();
         }
@@ -347,28 +339,24 @@ App.onPlayerTouched.Add(function(sender, target, x, y) {
         {
             target.spawnAtLocation("blue_prison");
             target.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
-            target.moveSpeed = 0;
             target.sendUpdated();
         }
         else if(target.tag.team==1 && target.tileX < 32)
         {
                   target.spawnAtLocation("red_prison");
                   target.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
-                  target.moveSpeed = 0;
                   target.sendUpdated();
         }
         if(sender.tag.team==0 && sender.tileX > 32)
         {
             sender.spawnAtLocation("blue_prison");
             sender.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
-            sender.moveSpeed = 0;
             sender.sendUpdated();
         }
         else if(sender.tag.team==1 && sender.tileX < 32)
         {
                   sender.spawnAtLocation("red_prison");
                   sender.tag.inprison = true; // 감옥에 갇힘여부 true로 변경
-                  sender.moveSpeed = 0;
                   sender.sendUpdated();
         }
     }
@@ -407,9 +395,9 @@ App.onLeavePlayer.Add(function(p) {
 
 // when player touched objects event
 // 플레이어가 오브젝트와 부딪혔을 때 
-App.onDestroy.Add(function() {
+App.onDestroy.Add(function () {
     Map.clearAllObjects();
-})
+});
 
 // called every 20ms
 // 20ms 마다 호출되는 업데이트
@@ -419,18 +407,15 @@ App.onUpdate.Add(function(dt) {
     for(let i in _players) {
         let p = _players[i];
         // 감옥에 갇힘 여부가 true 이면
-        if(p.tag.inprison)
-        {
-            p.tag.iTime -= dt; // 감옥에 갇힘 지속시간이 0이 될 때까지 update마다 dt만큼 빼줌
-            if(p.tag.iTime <= 0) // 감옥에 갇힘 지속시간이 0 이하가 되면,
-            {
+        if (p.tag.inprison) {
+            p.moveSpeed = 0; // 이동속도 0
+            p.sendUpdated();
+            App.runLater(function () {
                 p.tag.inprison = false; // 감옥에 갇힘 여부를 false로 변경
-                p.tag.iTime = 10; // 갇힘시간 10초로 초기화
                 p.moveSpeed = 120; // 이동속도 정상화
-                p.title = p.tag.inprison;
                 p.sendUpdated();
-            }
-        }
+            }, 10);
+        }    
     }
 
 
@@ -463,6 +448,7 @@ App.onUpdate.Add(function(dt) {
                 _timer--;
             }
       
+
 
             // time over
             if(_timer <= 0)
